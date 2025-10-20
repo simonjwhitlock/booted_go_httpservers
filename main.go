@@ -32,10 +32,10 @@ func main() {
 	handler := http.FileServer(http.Dir(filepathRoot))
 	mux.Handle("/app/", http.StripPrefix("/app/", apiCfg.middlewareMetricsInc(handler)))
 	// Serve the logo.png file at the /assets path
-	mux.Handle("/assets/", http.FileServer(http.Dir(filepathRoot)))
-	mux.Handle("/healthz/", http.HandlerFunc(handlerReadiness))
-	mux.Handle("/metrics/", http.HandlerFunc(apiCfg.handlerMetrics))
-	mux.Handle("/reset/", http.HandlerFunc(apiCfg.handlerResetMetrics))
+	mux.Handle("/api/assets", http.FileServer(http.Dir(filepathRoot)))
+	mux.Handle("GET /api/healthz", http.HandlerFunc(handlerReadiness))
+	mux.Handle("GET /admin/metrics", http.HandlerFunc(apiCfg.handlerMetrics))
+	mux.Handle("POST /admin/reset", http.HandlerFunc(apiCfg.handlerResetMetrics))
 
 	Server := &http.Server{
 		Addr:    ":" + port,
@@ -53,9 +53,9 @@ func handlerReadiness(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *apiConfig) handlerMetrics(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	str := fmt.Sprintf("Hits: %v\n", c.fileserverHits)
+	str := fmt.Sprintf("<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>", c.fileserverHits)
 	w.Write([]byte(str))
 }
 
