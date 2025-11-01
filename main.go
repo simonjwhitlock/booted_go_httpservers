@@ -1,13 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+
+	_ "github.com/lib/pq"
+	"github.com/simonjwhitlock/booted_go_httpservers/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits int
+	dbQueries      *database.Queries
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -18,12 +24,20 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func main() {
+	// load DB connection string from .env and then setup db connection
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		fmt.Printf("error setting up database connection: %v", err)
+		return
+	}
 
 	const filepathRoot = "."
 	const port = "8080"
 
 	apiCfg := &apiConfig{
 		fileserverHits: 0,
+		dbQueries:      database.New(db),
 	}
 
 	mux := http.NewServeMux()
