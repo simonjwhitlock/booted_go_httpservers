@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/simonjwhitlock/booted_go_httpservers/internal/database"
 )
@@ -25,6 +26,7 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 
 func main() {
 	// load DB connection string from .env and then setup db connection
+	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -49,8 +51,9 @@ func main() {
 	mux.Handle("/api/assets", http.FileServer(http.Dir(filepathRoot)))
 	mux.Handle("GET /api/healthz", http.HandlerFunc(handlerReadiness))
 	mux.Handle("GET /admin/metrics", http.HandlerFunc(apiCfg.handlerMetrics))
-	mux.Handle("POST /admin/reset", http.HandlerFunc(apiCfg.handlerResetMetrics))
+	mux.Handle("POST /admin/reset", http.HandlerFunc(apiCfg.handlerResetDEV))
 	mux.Handle("POST /api/validate_chirp", http.HandlerFunc(apiCfg.handlerValidateChirp))
+	mux.Handle("POST /api/users", http.HandlerFunc(apiCfg.handlerUserRegistration))
 
 	Server := &http.Server{
 		Addr:    ":" + port,
@@ -74,9 +77,20 @@ func (c *apiConfig) handlerMetrics(w http.ResponseWriter, req *http.Request) {
 	w.Write([]byte(str))
 }
 
-func (c *apiConfig) handlerResetMetrics(w http.ResponseWriter, req *http.Request) {
-	c.fileserverHits = 0
+func (c *apiConfig) handlerResetDEV(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	if os.Getenv("PLATFORM") == "dev" {
+		err := c.dbQueries.ResetUsers(req.Context())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("Error resetting users: %v", err)))
+		} else {
+			c.fileserverHits = 0
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Platform reset"))
+		}
+	} else {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("site not in dev mode"))
+	}
 }
