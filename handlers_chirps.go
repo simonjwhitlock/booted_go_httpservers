@@ -112,7 +112,7 @@ func (c *apiConfig) handlerGetChrips(w http.ResponseWriter, req *http.Request) {
 func (c *apiConfig) handlerGetChirp(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	var chirpOut jsonValidateResp
-	chirpID, err := uuid.FromBytes([]byte(req.PathValue("chirpID")))
+	chirpID, err := uuid.Parse(req.PathValue("chirpID"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		chirpOut.Error = fmt.Sprintf("error invalid UUID: %v", err)
@@ -121,7 +121,7 @@ func (c *apiConfig) handlerGetChirp(w http.ResponseWriter, req *http.Request) {
 	} else {
 		chirp, err := c.dbQueries.GetChirp(req.Context(), chirpID)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusNotFound)
 			chirpOut.Error = fmt.Sprintf("error retreving chirp: %v", err)
 		} else {
 			w.WriteHeader(http.StatusOK)
