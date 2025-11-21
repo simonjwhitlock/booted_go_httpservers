@@ -104,3 +104,4 @@ func (c *apiConfig) handlerUserLogin(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Write(jsonOut)
 }
+
