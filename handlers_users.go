@@ -37,7 +37,7 @@ func (c *apiConfig) handlerUserRegistration(w http.ResponseWriter, req *http.Req
 		hashedPW, err := auth.HashPassword(newUser.Password)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Sprintf("error creating password hash: %v", err)
+			jsonResponse.Error = fmt.Sprintf("error creating password hash: %v", err)
 		} else {
 			newUserParams := database.CreateUserParams{
 				Email:          newUser.Email,
@@ -104,4 +104,3 @@ func (c *apiConfig) handlerUserLogin(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Write(jsonOut)
 }
-
