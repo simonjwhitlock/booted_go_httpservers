@@ -21,6 +21,11 @@ type User struct {
 	RefreshToken string    `json:"refresh_token,omitempty"`
 }
 
+type UserUpdate struct {
+	Email    string `json:"email,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
 type Token struct {
 	Error string `json:"error,omitempty"`
 	Token string `json:"token,omitempty"`
@@ -186,6 +191,55 @@ func (c *apiConfig) handlerRefreshTokenRevoke(w http.ResponseWriter, req *http.R
 			w.Write([]byte(fmt.Sprintf("Error revoking refresh token: %v", err)))
 		} else {
 			w.WriteHeader(http.StatusNoContent)
+		}
+	}
+}
+
+func (c *apiConfig) handlerUserUpdate(w http.ResponseWriter, req *http.Request) {
+	userID, err := auth.TokenAuth(req.Header, c.tokenSecret)
+	fmt.Printf("User ID: %v \n", userID)
+	var newUserLogin UserUpdate
+	var userUpdateParams database.UpdateUserLoginParams
+	if err != nil {
+		w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(fmt.Sprintf("Authorization error: %v", err)))
+	} else {
+		decoder := json.NewDecoder(req.Body)
+		err = decoder.Decode(&newUserLogin)
+		if err != nil {
+			w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("Error decoding request body: %v", err)))
+		} else {
+			hashedPW, err := auth.HashPassword(newUserLogin.Password)
+			if err != nil {
+				w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("Error Hashing PW: %v", err)))
+			} else {
+				userUpdateParams.Email = newUserLogin.Email
+				userUpdateParams.HashedPassword = hashedPW
+				userUpdateParams.ID = userID
+				newUserReturn, err := c.dbQueries.UpdateUserLogin(req.Context(), userUpdateParams)
+				if err != nil {
+					w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte(fmt.Sprintf("Error updating user details: %v", err)))
+				} else {
+					var jsonResponse User
+					jsonResponse.Email = newUserLogin.Email
+					jsonResponse.UpdatedAt = newUserReturn.UpdatedAt
+					jsonResponse.CreatedAt = newUserReturn.CreatedAt
+					jsonResponse.ID = newUserReturn.ID
+					jsonOut, err := json.Marshal(jsonResponse)
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						jsonResponse.Error = fmt.Sprintf("Something went wrong compiling output: %v", err)
+					}
+					w.Write(jsonOut)
+				}
+			}
 		}
 	}
 }
