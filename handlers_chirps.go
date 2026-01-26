@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/simonjwhitlock/booted_go_httpservers/internal/auth"
 	"github.com/simonjwhitlock/booted_go_httpservers/internal/database"
 )
 
@@ -30,57 +31,68 @@ var Profanity []string
 
 func (c *apiConfig) handlerChirps(w http.ResponseWriter, req *http.Request) {
 	Profanity = append(Profanity, "kerfuffle", "sharbert", "fornax")
-	w.Header().Add("Content-Type", "application/json")
-	decoder := json.NewDecoder(req.Body)
-	var jsonResponse jsonValidateResp
-	var chirp newChirp
-	err := decoder.Decode(&chirp)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		jsonResponse.Error = fmt.Sprintf("Something went wrong: %v", err)
-	} else if chirp.Body == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		jsonResponse.Error = "Chirp is not present"
-	} else if len(chirp.Body) > 140 {
-		w.WriteHeader(http.StatusBadRequest)
-		jsonResponse.Error = "Chirp is too long"
-	} else {
-		words := strings.Split(chirp.Body, " ")
-		var clean []string
-		for _, word := range words {
-			dirty := slices.Contains(Profanity, strings.ToLower(word))
-			if dirty {
-				clean = append(clean, "****")
-			} else {
-				clean = append(clean, word)
-			}
-		}
-		cleanedChirp := database.NewChirpParams{
-			Body:   strings.Join(clean, " "),
-			UserID: chirp.UserID,
-		}
-		chirpResp, err := c.dbQueries.NewChirp(req.Context(), cleanedChirp)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			jsonResponse.Error = fmt.Sprintf("error submitting chirp to db: %v", err)
-		} else {
-			w.WriteHeader(http.StatusCreated)
-			jsonResponse = jsonValidateResp{
-				Body:      chirpResp.Body,
-				ID:        chirpResp.ID,
-				CreatedAt: chirpResp.CreatedAt,
-				UpdatedAt: chirpResp.UpdatedAt,
-				UserID:    chirpResp.UserID,
-			}
-		}
 
-	}
-	jsonOut, err := json.Marshal(jsonResponse)
+	userID, err := auth.TokenAuth(req.Header, c.tokenSecret)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		jsonResponse.Error = fmt.Sprintf("Something went wrong: %v", err)
+		fmt.Printf("error with header auth token: %v", err)
+		w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(http.StatusText(http.StatusUnauthorized)))
+	} else {
+		w.Header().Add("Content-Type", "application/json")
+
+		decoder := json.NewDecoder(req.Body)
+		var jsonResponse jsonValidateResp
+		var chirp newChirp
+		err = decoder.Decode(&chirp)
+		chirp.UserID = userID
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			jsonResponse.Error = fmt.Sprintf("Something went wrong: %v", err)
+		} else if chirp.Body == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			jsonResponse.Error = "Chirp is not present"
+		} else if len(chirp.Body) > 140 {
+			w.WriteHeader(http.StatusBadRequest)
+			jsonResponse.Error = "Chirp is too long"
+		} else {
+			words := strings.Split(chirp.Body, " ")
+			var clean []string
+			for _, word := range words {
+				dirty := slices.Contains(Profanity, strings.ToLower(word))
+				if dirty {
+					clean = append(clean, "****")
+				} else {
+					clean = append(clean, word)
+				}
+			}
+			cleanedChirp := database.NewChirpParams{
+				Body:   strings.Join(clean, " "),
+				UserID: chirp.UserID,
+			}
+			chirpResp, err := c.dbQueries.NewChirp(req.Context(), cleanedChirp)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				jsonResponse.Error = fmt.Sprintf("error submitting chirp to db: %v", err)
+			} else {
+				w.WriteHeader(http.StatusCreated)
+				jsonResponse = jsonValidateResp{
+					Body:      chirpResp.Body,
+					ID:        chirpResp.ID,
+					CreatedAt: chirpResp.CreatedAt,
+					UpdatedAt: chirpResp.UpdatedAt,
+					UserID:    chirpResp.UserID,
+				}
+			}
+
+		}
+		jsonOut, err := json.Marshal(jsonResponse)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			jsonResponse.Error = fmt.Sprintf("Something went wrong: %v", err)
+		}
+		w.Write(jsonOut)
 	}
-	w.Write(jsonOut)
 }
 
 func (c *apiConfig) handlerGetChrips(w http.ResponseWriter, req *http.Request) {

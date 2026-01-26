@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -13,8 +14,11 @@ import (
 )
 
 type apiConfig struct {
-	fileserverHits int
-	dbQueries      *database.Queries
+	fileserverHits       int
+	dbQueries            *database.Queries
+	tokenSecret          string
+	tokenDefualtDuration time.Duration
+	refreshTokenTimeout  time.Duration
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -36,10 +40,20 @@ func main() {
 
 	const filepathRoot = "."
 	const port = "8080"
-
+	parsedTokenDuration, err := time.ParseDuration(os.Getenv("TOKEN_DEFAULT_DURATION"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	parsedRefeshTokenTimout, err := time.ParseDuration(os.Getenv("REFRESH_TOKEN_TIMEOUT"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	apiCfg := &apiConfig{
-		fileserverHits: 0,
-		dbQueries:      database.New(db),
+		fileserverHits:       0,
+		dbQueries:            database.New(db),
+		tokenSecret:          os.Getenv("TOKEN_SECRET"),
+		tokenDefualtDuration: parsedTokenDuration,
+		refreshTokenTimeout:  parsedRefeshTokenTimout,
 	}
 
 	mux := http.NewServeMux()
@@ -57,6 +71,8 @@ func main() {
 	mux.Handle("GET /api/chirps/{chirpID}", http.HandlerFunc(apiCfg.handlerGetChirp))
 	mux.Handle("POST /api/users", http.HandlerFunc(apiCfg.handlerUserRegistration))
 	mux.Handle("POST /api/login", http.HandlerFunc(apiCfg.handlerUserLogin))
+	mux.Handle("POST /api/refresh", http.HandlerFunc(apiCfg.handlerRefreshToken))
+	mux.Handle("POST /api/revoke", http.HandlerFunc(apiCfg.handlerRefreshTokenRevoke))
 
 	Server := &http.Server{
 		Addr:    ":" + port,

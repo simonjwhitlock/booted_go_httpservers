@@ -66,6 +66,78 @@ func (q *Queries) GetUserPWHashByEmail(ctx context.Context, email string) (User,
 	return i, err
 }
 
+const refreshTokenGet = `-- name: RefreshTokenGet :one
+SELECT token, created_at, updated_at, user_id, expires_at, revoked_at FROM refresh_tokens
+WHERE token = $1
+`
+
+func (q *Queries) RefreshTokenGet(ctx context.Context, token string) (RefreshToken, error) {
+	row := q.db.QueryRowContext(ctx, refreshTokenGet, token)
+	var i RefreshToken
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const refreshTokenNew = `-- name: RefreshTokenNew :one
+INSERT INTO refresh_tokens (token,created_at,updated_at,user_id,expires_at)
+VALUES (
+    $1,
+    NOW(),
+    NOW(),
+    $2,
+    $3
+)
+RETURNING token, created_at, updated_at, user_id, expires_at, revoked_at
+`
+
+type RefreshTokenNewParams struct {
+	Token     string
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+func (q *Queries) RefreshTokenNew(ctx context.Context, arg RefreshTokenNewParams) (RefreshToken, error) {
+	row := q.db.QueryRowContext(ctx, refreshTokenNew, arg.Token, arg.UserID, arg.ExpiresAt)
+	var i RefreshToken
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const refreshTokenRevoke = `-- name: RefreshTokenRevoke :one
+UPDATE refresh_tokens 
+SET updated_at = NOW(), revoked_at = NOW()
+WHERE token = $1
+RETURNING token, created_at, updated_at, user_id, expires_at, revoked_at
+`
+
+func (q *Queries) RefreshTokenRevoke(ctx context.Context, token string) (RefreshToken, error) {
+	row := q.db.QueryRowContext(ctx, refreshTokenRevoke, token)
+	var i RefreshToken
+	err := row.Scan(
+		&i.Token,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserID,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const resetUsers = `-- name: ResetUsers :exec
 DELETE FROM users
 `

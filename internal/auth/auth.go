@@ -1,7 +1,11 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/alexedwards/argon2id"
@@ -75,4 +79,35 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+func GetBearerToken(headers http.Header) (string, error) {
+	tokenHeader := headers.Get("Authorization")
+
+	token := strings.Split(tokenHeader, "Bearer ")
+	if len(token) != 2 {
+		return "", fmt.Errorf("invalid token format")
+	}
+
+	return token[1], nil
+}
+
+func TokenAuth(headers http.Header, tokenSecret string) (uuid.UUID, error) {
+	httpToken, err := GetBearerToken(headers)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("error extracting token: %v", err)
+	}
+
+	userID, err := ValidateJWT(httpToken, tokenSecret)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("error validating token: %v", err)
+	}
+
+	return userID, nil
+}
+
+func MakeRefeshToken() (string, error) {
+	tokenByte := make([]byte, 32)
+	rand.Read(tokenByte)
+	return hex.EncodeToString(tokenByte), nil
 }
