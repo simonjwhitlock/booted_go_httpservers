@@ -19,6 +19,7 @@ type User struct {
 	Error        string    `json:"error,omitempty"`
 	Token        string    `json:"token,omitempty"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
+	IsRed        bool      `json:"is_chirpy_red"`
 }
 
 type UserUpdate struct {
@@ -66,6 +67,7 @@ func (c *apiConfig) handlerUserRegistration(w http.ResponseWriter, req *http.Req
 				jsonResponse.CreatedAt = userResp.CreatedAt
 				jsonResponse.UpdatedAt = userResp.UpdatedAt
 				jsonResponse.Email = userResp.Email
+				jsonResponse.IsRed = userResp.IsChirpyRed
 			}
 		}
 	}
@@ -125,6 +127,7 @@ func (c *apiConfig) handlerUserLogin(w http.ResponseWriter, req *http.Request) {
 							jsonResponse.Email = userResp.Email
 							jsonResponse.Token = token
 							jsonResponse.RefreshToken = newRefreshTokenReturn.Token
+							jsonResponse.IsRed = userResp.IsChirpyRed
 						}
 					}
 				}
@@ -232,6 +235,7 @@ func (c *apiConfig) handlerUserUpdate(w http.ResponseWriter, req *http.Request) 
 					jsonResponse.UpdatedAt = newUserReturn.UpdatedAt
 					jsonResponse.CreatedAt = newUserReturn.CreatedAt
 					jsonResponse.ID = newUserReturn.ID
+					jsonResponse.IsRed = newUserReturn.IsChirpyRed
 					jsonOut, err := json.Marshal(jsonResponse)
 					if err != nil {
 						w.WriteHeader(http.StatusInternalServerError)

@@ -4,4 +4,4 @@ ADD hashed_password TEXT NOT NULL;
 
 -- +goose Down
 ALTER TABLE users
-DELETE IF EXISTS hashed_password;
+DROP COLUMN hashed_password;

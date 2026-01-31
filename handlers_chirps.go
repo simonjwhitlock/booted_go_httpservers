@@ -150,3 +150,46 @@ func (c *apiConfig) handlerGetChirp(w http.ResponseWriter, req *http.Request) {
 	jsonOut, _ := json.Marshal(chirpOut)
 	w.Write(jsonOut)
 }
+
+func (c *apiConfig) handlerDeleteChirp(w http.ResponseWriter, req *http.Request) {
+	userID, err := auth.TokenAuth(req.Header, c.tokenSecret)
+	if err != nil {
+		w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(fmt.Sprintf("Authorization error: %v", err)))
+		return
+	}
+	chirpID, err := uuid.Parse(req.PathValue("chirpID"))
+	if err != nil {
+		w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Chirp ID invalid: %v", err)))
+		return
+	}
+	chirp, err := c.dbQueries.GetChirp(req.Context(), chirpID)
+	if err != nil {
+		w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(fmt.Sprintf("Failed to reteve Chirp data: %v", err)))
+		return
+	}
+	if userID == chirp.UserID {
+		err = c.dbQueries.DeleteChirp(req.Context(), chirpID)
+		if err != nil {
+			w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("Failed to delete Chirp: %v", err)))
+			return
+		} else {
+			w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusNoContent)
+			w.Write([]byte(fmt.Sprintf("Failed to delete Chirp: %v", err)))
+			return
+		}
+	} else {
+		w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(fmt.Sprintf("User ID missmatch: %v", err)))
+		return
+	}
+}

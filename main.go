@@ -62,18 +62,28 @@ func main() {
 	handler := http.FileServer(http.Dir(filepathRoot))
 	mux.Handle("/app/", http.StripPrefix("/app/", apiCfg.middlewareMetricsInc(handler)))
 	// Serve the logo.png file at the /assets path
+
+	// gerneral API call handlers
 	mux.Handle("/api/assets", http.FileServer(http.Dir(filepathRoot)))
 	mux.Handle("GET /api/healthz", http.HandlerFunc(handlerReadiness))
 	mux.Handle("GET /admin/metrics", http.HandlerFunc(apiCfg.handlerMetrics))
 	mux.Handle("POST /admin/reset", http.HandlerFunc(apiCfg.handlerResetDEV))
-	mux.Handle("POST /api/chirps", http.HandlerFunc(apiCfg.handlerChirps))
-	mux.Handle("GET /api/chirps", http.HandlerFunc(apiCfg.handlerGetChrips))
-	mux.Handle("GET /api/chirps/{chirpID}", http.HandlerFunc(apiCfg.handlerGetChirp))
+
+	// user API call handlers
 	mux.Handle("POST /api/users", http.HandlerFunc(apiCfg.handlerUserRegistration))
 	mux.Handle("POST /api/login", http.HandlerFunc(apiCfg.handlerUserLogin))
 	mux.Handle("POST /api/refresh", http.HandlerFunc(apiCfg.handlerRefreshToken))
 	mux.Handle("POST /api/revoke", http.HandlerFunc(apiCfg.handlerRefreshTokenRevoke))
 	mux.Handle("PUT /api/users", http.HandlerFunc(apiCfg.handlerUserUpdate))
+
+	// chirp API call handlers
+	mux.Handle("POST /api/chirps", http.HandlerFunc(apiCfg.handlerChirps))
+	mux.Handle("GET /api/chirps", http.HandlerFunc(apiCfg.handlerGetChrips))
+	mux.Handle("GET /api/chirps/{chirpID}", http.HandlerFunc(apiCfg.handlerGetChirp))
+	mux.Handle("DELETE /api/chirps/{chirpID}", http.HandlerFunc(apiCfg.handlerDeleteChirp))
+
+	// webhook handlers
+	mux.Handle("POST /api/polka/webhooks", http.HandlerFunc(apiCfg.handlerUserSetRed))
 
 	Server := &http.Server{
 		Addr:    ":" + port,
