@@ -19,6 +19,7 @@ type apiConfig struct {
 	tokenSecret          string
 	tokenDefualtDuration time.Duration
 	refreshTokenTimeout  time.Duration
+	polkaKey             string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -54,6 +55,7 @@ func main() {
 		tokenSecret:          os.Getenv("TOKEN_SECRET"),
 		tokenDefualtDuration: parsedTokenDuration,
 		refreshTokenTimeout:  parsedRefeshTokenTimout,
+		polkaKey:             os.Getenv("POLKA_KEY"),
 	}
 
 	mux := http.NewServeMux()

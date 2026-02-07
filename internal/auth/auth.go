@@ -111,3 +111,12 @@ func MakeRefeshToken() (string, error) {
 	rand.Read(tokenByte)
 	return hex.EncodeToString(tokenByte), nil
 }
+
+func GetAPIKey(headers http.Header) (string, error) {
+	keyHeader := headers.Get("Authorization")
+	key := strings.Split(keyHeader, "ApiKey ")
+	if len(key) != 2 {
+		return "", fmt.Errorf("invalid API key format")
+	}
+	return key[1], nil
+}
