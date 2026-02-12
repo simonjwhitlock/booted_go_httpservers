@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -97,28 +98,49 @@ func (c *apiConfig) handlerChirps(w http.ResponseWriter, req *http.Request) {
 
 func (c *apiConfig) handlerGetChrips(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	chirpList, err := c.dbQueries.GetAllChirps(req.Context())
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("error retreving chirps: %v", err)))
-	} else {
-		response := []jsonValidateResp{}
-		for _, chirp := range chirpList {
-			response = append(response, jsonValidateResp{
-				Body:      chirp.Body,
-				CreatedAt: chirp.CreatedAt,
-				UpdatedAt: chirp.UpdatedAt,
-				ID:        chirp.ID,
-				UserID:    chirp.UserID,
-			})
-		}
-		jsonOut, err := json.Marshal(response)
+	userID, _ := uuid.Parse(req.URL.Query().Get("author_id"))
+	sortOrder := req.URL.Query().Get("sort")
+	var chirpList []database.Chirp
+	var err error
+	if userID == uuid.Nil {
+		chirpList, err = c.dbQueries.GetAllChirps(req.Context())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("error returning chirps: %v", err)))
+			w.Write([]byte(fmt.Sprintf("error retreving chirps: %v", err)))
+			return
 		}
-		w.Write(jsonOut)
+	} else {
+		chirpList, err = c.dbQueries.GetUsersChirps(req.Context(), userID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("error retreving chirps: %v", err)))
+			return
+		}
 	}
+
+	if sortOrder == "desc" {
+		sort.Slice(chirpList, func(a, b int) bool { return chirpList[a].CreatedAt.After(chirpList[b].CreatedAt) })
+	} else {
+		sort.Slice(chirpList, func(a, b int) bool { return chirpList[a].CreatedAt.Before(chirpList[b].CreatedAt) })
+	}
+
+	response := []jsonValidateResp{}
+	for _, chirp := range chirpList {
+		response = append(response, jsonValidateResp{
+			Body:      chirp.Body,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			ID:        chirp.ID,
+			UserID:    chirp.UserID,
+		})
+	}
+	jsonOut, err := json.Marshal(response)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("error returning chirps: %v", err)))
+	}
+	w.Write(jsonOut)
+
 }
 
 func (c *apiConfig) handlerGetChirp(w http.ResponseWriter, req *http.Request) {
